@@ -98,6 +98,24 @@ private:
 
 };
 
+class Test{
+public:
+    vector<cv::Mat>& testimages(){return testimages_;}
+    vector<cv::Mat> testimages()const{return testimages_;}
+    Test& testimages(vector<cv::Mat> imgs){testimages_=imgs;return *this;}
+    
+    
+    void initialize(vector<cv::Mat> testset);
+
+private:
+    vector<cv::Mat> testimages_;
+    int row_;
+    int col_;
+    int size_;
+    int imgsize_;
+    vector<vector<double> weights;
+};
+
 void Training::initialize(vector<cv::Mat> trainingset)
 {
     if(trainingset.empty())
@@ -125,6 +143,7 @@ void Training::computeAverageFace()
 
 void Training::computeMatX()
 {
+    MatX_.release();
     for(auto trainingimg:trainingimages_)
     {
         cv::Mat img = trainingimg.reshape(0, 1);
@@ -185,6 +204,7 @@ void Training::PCA3()
 
 void Training::ComputeEigenfaces()
 {
+    eigenfaces_.release();
     for(int i=0; i<size_; ++i)
     {
         cv::Mat eigenface = cv::Mat::zeros(1, imgsize_, CV_32FC1);
@@ -204,17 +224,41 @@ void Training::FindSigEigenfaces(int n)
 {
     cv::Mat SortedIdx;
     cv::sortIdx(eigenvalue3_, SortedIdx, CV_SORT_EVERY_COLUMN | CV_SORT_DESCENDING);
-    
-    //for()
+    topeigenfaces_.clear();
+    for(int i =0; i<n; ++i)
+    {
+        int col = SortedIdx.at<int>(i,0);
+        cv::Mat eigenface = eigenfaces.col(col).clone();
+        topeigenfaces_.push_back(eigenface);
+    }
     
 }
+
+
+void Test::initialize(vector<cv::Mat> testset)
+{
+    if(testset.empty())
+        return;
+    testimages_ = testset;
+    row_ = testset[0].rows;
+    col_ = testset[0].cols;
+    size_ =  (int)testset.size();
+    imgsize_ = row_ * col_;
+}
+
+void Test::ComputeWeights()
+{
+    
+}
+
+
 
 int main() {
 
     Training training_;
     
     vector<cv::Mat> TrainingImgs;
-    
+    vector<cv::Mat> TestImgs;
     vector<string> faces = {"centerlight", "glasses", "happy","leftlight","noglasses","normal","rightlight","sad","sleepy","surprised","wink"
     };
     
@@ -234,6 +278,21 @@ int main() {
         }
     }
     
+    for(int i=1; i<=15; i++)
+    {
+        string subject = to_string(i);
+        if(i<10)
+            subject = "0" + subject;
+        string s = "../../data/TestSet/subject" + subject;
+        for(auto face:faces)
+        {
+            string imgpath = s + "." + face;
+            cv::Mat img = cv::imread(imgpath, CV_LOAD_IMAGE_GRAYSCALE);
+            if(!img.empty())
+                TestImgs.push_back(img);
+        }
+    }
+    
     training_.initialize(TrainingImgs);
     training_.computeAverageFace();
     //cout<<training_.averageface();
@@ -248,7 +307,7 @@ int main() {
 
     int n = 10;
     
-    training_.FindSigEigenfaces();
+    training_.FindSigEigenfaces(n);
 
     
 //    for(int i=0; i<n; ++i)
